@@ -1,7 +1,7 @@
-import { useAppStore } from '../../store/useAppStore';
-import { CURRENT_USER_ID } from '../../types';
+import { useAppStore, useCurrentUserId } from '../../store/useAppStore';
 
 export function CalendarList() {
+  const currentUserId = useCurrentUserId();
   const calendars = useAppStore((s) => s.calendars);
   const openCalendarForm = useAppStore((s) => s.openCalendarForm);
   const deleteCalendar = useAppStore((s) => s.deleteCalendar);
@@ -15,8 +15,8 @@ export function CalendarList() {
   return (
     <div className="p-4 space-y-3">
       {calendars.map((cal) => {
-        const isWriter = cal.writerIds.includes(CURRENT_USER_ID);
-        const isViewer = !isWriter && cal.viewerIds.includes(CURRENT_USER_ID);
+        const isWriter = cal.writerIds.includes(currentUserId);
+        const isViewer = !isWriter && cal.viewerIds.includes(currentUserId);
 
         return (
           <div

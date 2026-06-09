@@ -10,7 +10,8 @@ import type {
   FeedNotification,
   AppTab,
 } from '../types';
-import { CURRENT_USER_ID } from '../types';
+import { DEFAULT_CURRENT_USER_ID } from '../types';
+import { countUnreadCommentNotifications } from '../utils/notifications';
 import {
   seedMembers,
   seedCalendars,
@@ -47,9 +48,11 @@ interface AppStore {
   showEventDetail: boolean;
   isSearchOpen: boolean;
   searchQuery: string;
+  currentUserId: string;
 
   unreadCount: number;
 
+  setCurrentUserId: (id: string) => void;
   setCurrentDate: (date: Date) => void;
   setCurrentTab: (tab: AppTab) => void;
   setCalendarViewMode: (mode: 'month' | 'week') => void;
@@ -85,21 +88,22 @@ interface AppStore {
   closeDayPopup: () => void;
 }
 
-function getCurrentUserName(members: Member[]): string {
-  return members.find((m) => m.id === CURRENT_USER_ID)?.name ?? '사용자';
+function getCurrentUserName(members: Member[], userId: string): string {
+  return members.find((m) => m.id === userId)?.name ?? '사용자';
 }
 
 function createEventNotification(
   type: FeedNotification['type'],
   event: CalendarEvent,
-  message: string
+  message: string,
+  actorId: string
 ): FeedNotification {
   return {
     id: generateId('n'),
     type,
     eventId: event.id,
     eventTitle: event.title,
-    targetMemberIds: event.notifyMemberIds.filter((id) => id !== CURRENT_USER_ID),
+    targetMemberIds: event.notifyMemberIds.filter((id) => id !== actorId),
     message,
     isRead: false,
     createdAt: new Date().toISOString(),
@@ -134,9 +138,11 @@ export const useAppStore = create<AppStore>()(
       showEventDetail: false,
       isSearchOpen: false,
       searchQuery: '',
+      currentUserId: DEFAULT_CURRENT_USER_ID,
 
       unreadCount: 0,
 
+      setCurrentUserId: (id) => set({ currentUserId: id }),
       setCurrentDate: (date) => set({ currentDate: date }),
       setCurrentTab: (tab) => set({ currentTab: tab }),
       setCalendarViewMode: (mode) => set({ calendarViewMode: mode }),
@@ -212,7 +218,8 @@ export const useAppStore = create<AppStore>()(
         const now = new Date().toISOString();
         const id = generateId('e');
         const newEvent: CalendarEvent = { ...event, id, createdAt: now, updatedAt: now };
-        const actorName = getCurrentUserName(get().members);
+        const actorId = get().currentUserId;
+        const actorName = getCurrentUserName(get().members, actorId);
         const log: ActivityLog = {
           id: generateId('log'),
           eventId: id,
@@ -224,7 +231,8 @@ export const useAppStore = create<AppStore>()(
         const notif = createEventNotification(
           'event_created',
           newEvent,
-          `${actorName}님이 일정을 등록했습니다`
+          `${actorName}님이 일정을 등록했습니다`,
+          actorId
         );
         set((s) => ({
           events: [...s.events, newEvent],
@@ -235,7 +243,8 @@ export const useAppStore = create<AppStore>()(
 
       updateEvent: (id, updates) => {
         const now = new Date().toISOString();
-        const actorName = getCurrentUserName(get().members);
+        const actorId = get().currentUserId;
+        const actorName = getCurrentUserName(get().members, actorId);
         let updatedEvent: CalendarEvent | undefined;
         set((s) => {
           const events = s.events.map((e) => {
@@ -257,7 +266,8 @@ export const useAppStore = create<AppStore>()(
             ? createEventNotification(
                 'event_updated',
                 updatedEvent,
-                `${actorName}님이 일정을 수정했습니다`
+                `${actorName}님이 일정을 수정했습니다`,
+                actorId
               )
             : null;
           return {
@@ -272,7 +282,8 @@ export const useAppStore = create<AppStore>()(
         const event = get().events.find((e) => e.id === id);
         if (!event) return;
         const now = new Date().toISOString();
-        const actorName = getCurrentUserName(get().members);
+        const actorId = get().currentUserId;
+        const actorName = getCurrentUserName(get().members, actorId);
         const log: ActivityLog = {
           id: generateId('log'),
           eventId: id,
@@ -284,7 +295,8 @@ export const useAppStore = create<AppStore>()(
         const notif = createEventNotification(
           'event_deleted',
           event,
-          `${actorName}님이 일정을 삭제했습니다`
+          `${actorName}님이 일정을 삭제했습니다`,
+          actorId
         );
         set((s) => ({
           events: s.events.filter((e) => e.id !== id),
@@ -300,7 +312,8 @@ export const useAppStore = create<AppStore>()(
         const event = get().events.find((e) => e.id === comment.eventId);
         if (!event) return;
 
-        const isOwnComment = comment.authorId === CURRENT_USER_ID;
+        const currentUserId = get().currentUserId;
+        const isOwnComment = comment.authorId === currentUserId;
 
         if (isOwnComment) {
           set((s) => ({ comments: [...s.comments, newComment] }));
@@ -312,7 +325,7 @@ export const useAppStore = create<AppStore>()(
           .map((c) => c.authorId);
         const targetIds = [
           ...new Set([...event.notifyMemberIds, ...commenterIds, comment.authorId]),
-        ].filter((mid) => mid !== CURRENT_USER_ID);
+        ].filter((mid) => mid !== comment.authorId);
 
         const textPreview = comment.text
           ? comment.text.slice(0, 20) + (comment.text.length > 20 ? '...' : '')
@@ -369,6 +382,7 @@ export const useAppStore = create<AppStore>()(
         activityLogs: state.activityLogs,
         notifications: state.notifications,
         currentDate: state.currentDate,
+        currentUserId: state.currentUserId,
       }),
       merge: (persisted, current) => {
         const p = persisted as Partial<AppStore>;
@@ -382,8 +396,12 @@ export const useAppStore = create<AppStore>()(
   )
 );
 
+export function useCurrentUserId(): string {
+  return useAppStore((s) => s.currentUserId);
+}
+
 export function useUnreadCount(): number {
-  return useAppStore(
-    (s) => s.notifications.filter((n) => !n.isRead && n.type === 'comment_added').length
+  return useAppStore((s) =>
+    countUnreadCommentNotifications(s.notifications, s.currentUserId)
   );
 }

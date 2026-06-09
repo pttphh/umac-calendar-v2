@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { Filter } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { formatDateTime } from '../../utils/dateUtils';
+import { countUnreadCommentNotificationsForEvent } from '../../utils/notifications';
+
 export function FeedView() {
   const [subTab, setSubTab] = useState<'comments' | 'files'>('comments');
   const [mcFilter, setMcFilter] = useState<string | null>(null);
@@ -12,63 +14,52 @@ export function FeedView() {
   const members = useAppStore((s) => s.members);
   const calendars = useAppStore((s) => s.calendars);
   const openEventDetail = useAppStore((s) => s.openEventDetail);
+  const currentUserId = useAppStore((s) => s.currentUserId);
 
-  const { unreadItems, readItems } = useMemo(() => {
-    // 목록: 댓글이 하나라도 있는 일정 전체 (내 댓글 포함)
-    const eventIdsWithComments = [
-      ...new Set(comments.map((c) => c.eventId)),
-    ];
+  const feedItems = useMemo(() => {
+    const eventIdsWithComments = [...new Set(comments.map((c) => c.eventId))];
 
-    const items = eventIdsWithComments.map((eventId) => {
-      const event = events.find((e) => e.id === eventId);
-      const mc = event?.meetingContactId
-        ? meetingContacts.find((m) => m.id === event.meetingContactId)
-        : null;
-      const evComments = comments
-        .filter((c) => c.eventId === eventId)
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      const latest = evComments[0];
-      const cal = event ? calendars.find((c) => c.id === event.calendarId) : null;
-      const writer = event
-        ? members.find((m) => cal?.writerIds.includes(m.id)) ?? null
-        : null;
+    return eventIdsWithComments
+      .map((eventId) => {
+        const event = events.find((e) => e.id === eventId);
+        const mc = event?.meetingContactId
+          ? meetingContacts.find((m) => m.id === event.meetingContactId)
+          : null;
+        const evComments = comments
+          .filter((c) => c.eventId === eventId)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        const latest = evComments[0];
+        const cal = event ? calendars.find((c) => c.id === event.calendarId) : null;
+        const writer = event
+          ? members.find((m) => cal?.writerIds.includes(m.id)) ?? null
+          : null;
 
-      const eventNotifs = notifications.filter((n) => n.eventId === eventId);
-      const latestNotif = [...eventNotifs].sort((a, b) =>
-        b.createdAt.localeCompare(a.createdAt)
-      )[0];
+        const sortTime = latest?.createdAt ?? event?.createdAt ?? '';
 
-      const latestCommentTime = latest?.createdAt ?? '';
-      const latestNotifTime = latestNotif?.createdAt ?? '';
-      const sortTime =
-        latestCommentTime > latestNotifTime ? latestCommentTime : latestNotifTime;
+        const unreadCount = countUnreadCommentNotificationsForEvent(
+          notifications,
+          eventId,
+          currentUserId
+        );
 
-      // 미읽음 배지: 타인 댓글 알림(comment_added)만 카운트 (내 댓글은 알림 미생성)
-      const unreadCount = eventNotifs.filter(
-        (n) => !n.isRead && n.type === 'comment_added'
-      ).length;
+        const preview = latest
+          ? `${latest.authorName}: ${latest.text ?? '이미지를 첨부했습니다'}`
+          : '';
 
-      return {
-        eventId,
-        isUnread: unreadCount > 0,
-        sortTime,
-        event,
-        mc,
-        latest,
-        writer,
-        commentCount: evComments.length,
-        unreadCount,
-      };
-    });
-
-    const sortDesc = (a: { sortTime: string }, b: { sortTime: string }) =>
-      b.sortTime.localeCompare(a.sortTime);
-
-    return {
-      unreadItems: items.filter((i) => i.isUnread).sort(sortDesc),
-      readItems: items.filter((i) => !i.isUnread).sort(sortDesc),
-    };
-  }, [notifications, events, meetingContacts, comments, calendars, members]);
+        return {
+          eventId,
+          sortTime,
+          event,
+          mc,
+          latest,
+          writer,
+          preview,
+          unreadCount,
+          displayTime: latest?.createdAt ?? event?.createdAt ?? '',
+        };
+      })
+      .sort((a, b) => b.sortTime.localeCompare(a.sortTime));
+  }, [notifications, events, meetingContacts, comments, calendars, members, currentUserId]);
 
   const imageComments = comments.filter((c) => c.imageUrl);
   const docComments = comments.filter((c) => c.text && c.text.includes('문서'));
@@ -79,8 +70,6 @@ export function FeedView() {
         return ev?.meetingContactId === mcFilter;
       })
     : imageComments;
-
-  const hasFeedItems = unreadItems.length > 0 || readItems.length > 0;
 
   return (
     <div className="pb-16">
@@ -106,24 +95,12 @@ export function FeedView() {
 
       {subTab === 'comments' ? (
         <div>
-          {unreadItems.length > 0 && (
-            <>
-              <div className="px-4 py-2 bg-gray-50 text-xs text-gray-500 font-medium">읽지 않음</div>
-              {unreadItems.map((item) => (
-                <FeedItem key={item.eventId} item={item} onOpen={openEventDetail} isRead={false} />
-              ))}
-            </>
-          )}
-          {readItems.length > 0 && (
-            <>
-              <div className="px-4 py-2 bg-gray-50 text-xs text-gray-500 font-medium">읽음</div>
-              {readItems.map((item) => (
-                <FeedItem key={item.eventId} item={item} onOpen={openEventDetail} isRead />
-              ))}
-            </>
-          )}
-          {!hasFeedItems && (
+          {feedItems.length === 0 ? (
             <p className="text-center text-gray-400 py-12">댓글이 있는 일정이 없습니다</p>
+          ) : (
+            feedItems.map((item) => (
+              <FeedItem key={item.eventId} item={item} onOpen={openEventDetail} />
+            ))
           )}
         </div>
       ) : (
@@ -207,68 +184,58 @@ export function FeedView() {
 interface FeedItemProps {
   item: {
     eventId: string;
-    event?: { title: string; startDateTime: string };
+    event?: { title: string; createdAt?: string };
     mc?: { name: string } | null;
     writer?: { name: string; color: string } | null;
-    latest?: { text?: string };
-    commentCount: number;
+    preview: string;
     unreadCount: number;
+    displayTime: string;
   };
   onOpen: (id: string) => void;
-  isRead: boolean;
 }
 
-function FeedItem({ item, onOpen, isRead }: FeedItemProps) {
+function FeedItem({ item, onOpen }: FeedItemProps) {
   return (
     <button
       type="button"
       onClick={() => onOpen(item.eventId)}
-      className={`relative w-full text-left py-3 pl-4 pr-4 border-b border-gray-100 ${
-        isRead ? 'bg-gray-50 text-gray-400' : 'bg-white'
-      }`}
+      className="w-full text-left bg-white py-3 px-4 border-b border-gray-100"
     >
-      {!isRead && (
-        <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary" />
-      )}
-      <div className="flex justify-between items-start">
-        <span className={isRead ? 'text-gray-400' : 'font-semibold text-gray-900'}>
-          {item.event?.title}
-        </span>
-        <span className={`text-xs shrink-0 ml-2 ${isRead ? 'text-gray-400' : 'text-gray-500'}`}>
-          {item.event && formatDateTime(item.event.startDateTime)}
-        </span>
-      </div>
-      <div className="flex gap-1.5 mt-1">
-        {item.mc && (
-          <span
-            className={`text-[10px] px-2 py-0.5 rounded-full ${
-              isRead ? 'bg-gray-100 text-gray-400' : 'bg-gray-100 text-gray-600'
-            }`}
-          >
-            {item.mc.name}
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <span className="font-semibold text-gray-900 truncate">{item.event?.title}</span>
+            {item.displayTime && (
+              <span className="text-xs text-gray-400 shrink-0">
+                {formatDateTime(item.displayTime)}
+              </span>
+            )}
+          </div>
+          <div className="flex gap-1.5 mt-1 flex-wrap">
+            {item.mc && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                {item.mc.name}
+              </span>
+            )}
+            {item.writer && (
+              <span
+                className="text-[10px] px-2 py-0.5 rounded-full text-white"
+                style={{ backgroundColor: item.writer.color }}
+              >
+                {item.writer.name}
+              </span>
+            )}
+          </div>
+          {item.preview && (
+            <p className="text-sm text-gray-500 mt-1.5 truncate">{item.preview}</p>
+          )}
+        </div>
+        {item.unreadCount > 0 && (
+          <span className="shrink-0 min-w-[20px] h-5 px-1.5 bg-unread text-white text-xs font-bold rounded-full flex items-center justify-center mt-0.5">
+            {item.unreadCount}
           </span>
         )}
-        {item.writer && (
-          <span
-            className={`text-[10px] px-2 py-0.5 rounded-full text-white ${
-              isRead ? 'opacity-60' : ''
-            }`}
-            style={{ backgroundColor: item.writer.color }}
-          >
-            {item.writer.name}
-          </span>
-        )}
       </div>
-      {item.latest?.text && (
-        <p className={`text-sm mt-2 line-clamp-2 ${isRead ? 'text-gray-400' : 'text-gray-500'}`}>
-          {item.latest.text}
-        </p>
-      )}
-      {!isRead && item.unreadCount > 0 && (
-        <span className="inline-flex mt-1 min-w-[18px] h-[18px] bg-unread text-white text-[10px] rounded-full items-center justify-center px-1">
-          {item.unreadCount}
-        </span>
-      )}
     </button>
   );
 }

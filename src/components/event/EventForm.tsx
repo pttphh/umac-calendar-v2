@@ -1,10 +1,9 @@
 import { useState, useMemo } from 'react';
 import { ChevronDown, Plus, X } from 'lucide-react';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, useCurrentUserId } from '../../store/useAppStore';
 import { FormHeader } from '../common/FormHeader';
 import { MemberPill } from '../common/MemberPill';
 import type { RepeatRule, CalendarEvent } from '../../types';
-import { CURRENT_USER_ID } from '../../types';
 
 const REPEAT_LABELS: Record<string, string> = {
   none: '안함',
@@ -29,9 +28,10 @@ export function EventForm() {
   const meetingContacts = useAppStore((s) => s.meetingContacts);
   const addMeetingContact = useAppStore((s) => s.addMeetingContact);
   const members = useAppStore((s) => s.members);
+  const currentUserId = useCurrentUserId();
 
   const existing = editingEventId ? events.find((e) => e.id === editingEventId) : null;
-  const writableCals = calendars.filter((c) => c.writerIds.includes(CURRENT_USER_ID));
+  const writableCals = calendars.filter((c) => c.writerIds.includes(currentUserId));
 
   const initDate = defaultDate ?? '2026-06-09';
   const [calendarId, setCalendarId] = useState(existing?.calendarId ?? writableCals[0]?.id ?? 'cal1');
@@ -95,7 +95,7 @@ export function EventForm() {
       name,
       category: '고객사',
       managerName: '',
-      defaultNotifyIds: [CURRENT_USER_ID],
+      defaultNotifyIds: [currentUserId],
     };
     addMeetingContact(newMc);
     const created = useAppStore.getState().meetingContacts.find((m) => m.name === name);

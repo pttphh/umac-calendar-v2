@@ -1,8 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { ArrowLeft, Camera, Send, Paperclip } from 'lucide-react';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, useCurrentUserId } from '../../store/useAppStore';
 import { formatDateTime, formatTime } from '../../utils/dateUtils';
-import { CURRENT_USER_ID } from '../../types';
 import { parseISO, format } from 'date-fns';
 
 export function EventDetail() {
@@ -18,6 +17,7 @@ export function EventDetail() {
   const comments = useAppStore((s) => s.comments);
   const activityLogs = useAppStore((s) => s.activityLogs);
   const members = useAppStore((s) => s.members);
+  const currentUserId = useCurrentUserId();
 
   const [commentText, setCommentText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,8 +28,8 @@ export function EventDetail() {
   const mc = event?.meetingContactId
     ? meetingContacts.find((m) => m.id === event.meetingContactId)
     : null;
-  const currentUser = members.find((m) => m.id === CURRENT_USER_ID);
-  const canEdit = cal?.writerIds.includes(CURRENT_USER_ID);
+  const currentUser = members.find((m) => m.id === currentUserId);
+  const canEdit = cal?.writerIds.includes(currentUserId);
 
   const timeline = useMemo(() => {
     if (!event) return [];

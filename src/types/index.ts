@@ -89,4 +89,5 @@ export interface ExpandedEvent extends CalendarEvent {
   occurrenceKey: string;
 }
 
-export const CURRENT_USER_ID = 'm1';
+/** 기본 사용자 ID (스토어 초기값) */
+export const DEFAULT_CURRENT_USER_ID = 'm1';

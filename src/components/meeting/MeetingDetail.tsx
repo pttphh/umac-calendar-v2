@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Edit2, Send, Camera } from 'lucide-react';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, useCurrentUserId } from '../../store/useAppStore';
 import { formatDateTime } from '../../utils/dateUtils';
-import { CURRENT_USER_ID } from '../../types';
 import { parseISO, isBefore, startOfDay } from 'date-fns';
 
 type DetailTab = 'events' | 'comments' | 'files' | 'info';
@@ -18,6 +17,7 @@ export function MeetingDetail() {
   const comments = useAppStore((s) => s.comments);
   const members = useAppStore((s) => s.members);
   const calendars = useAppStore((s) => s.calendars);
+  const currentUserId = useCurrentUserId();
 
   const [tab, setTab] = useState<DetailTab>('events');
   const [commentText, setCommentText] = useState('');
@@ -38,7 +38,7 @@ export function MeetingDetail() {
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   const imageComments = mcComments.filter((c) => c.imageUrl);
-  const currentUser = members.find((m) => m.id === CURRENT_USER_ID);
+  const currentUser = members.find((m) => m.id === currentUserId);
 
   const handleSend = () => {
     if (!commentText.trim() || mcEvents.length === 0 || !currentUser) return;

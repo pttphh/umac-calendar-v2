@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Calendar, MessageCircle, Building2, Settings, Search, X } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, useUnreadCount } from '../../store/useAppStore';
 import type { AppTab } from '../../types';
 
 const tabs: { id: AppTab; label: string; icon: typeof Calendar }[] = [
@@ -23,7 +23,6 @@ export function BottomNav() {
     isCalendarFormOpen,
     isCalendarMgmtOpen,
     dayPopupDate,
-    unreadCount,
     isSearchOpen,
     searchQuery,
     openSearch,
@@ -39,9 +38,6 @@ export function BottomNav() {
       isCalendarFormOpen: s.isCalendarFormOpen,
       isCalendarMgmtOpen: s.isCalendarMgmtOpen,
       dayPopupDate: s.dayPopupDate,
-      unreadCount: s.notifications.filter(
-        (n) => !n.isRead && n.type === 'comment_added'
-      ).length,
       isSearchOpen: s.isSearchOpen,
       searchQuery: s.searchQuery,
       openSearch: s.openSearch,
@@ -49,6 +45,8 @@ export function BottomNav() {
       setSearchQuery: s.setSearchQuery,
     }))
   );
+
+  const unreadCount = useUnreadCount();
 
   const hidden =
     isEventFormOpen ||

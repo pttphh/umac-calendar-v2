@@ -1,12 +1,13 @@
 import { ChevronRight } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
-import { CURRENT_USER_ID } from '../../types';
 
 export function MoreView() {
   const members = useAppStore((s) => s.members);
+  const currentUserId = useAppStore((s) => s.currentUserId);
+  const setCurrentUserId = useAppStore((s) => s.setCurrentUserId);
   const setCurrentTab = useAppStore((s) => s.setCurrentTab);
   const openCalendarMgmt = useAppStore((s) => s.openCalendarMgmt);
-  const currentUser = members.find((m) => m.id === CURRENT_USER_ID);
+  const currentUser = members.find((m) => m.id === currentUserId);
 
   const sections = [
     {
@@ -39,20 +40,44 @@ export function MoreView() {
         <h1 className="text-lg font-semibold">설정</h1>
       </header>
 
-      {currentUser && (
-        <div className="flex items-center gap-3 px-4 py-4 mt-3 mx-3 bg-white rounded-xl border border-gray-100 shadow-sm">
-          <div
-            className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-medium"
-            style={{ backgroundColor: currentUser.color }}
-          >
-            {currentUser.name[0]}
-          </div>
-          <div>
-            <p className="font-medium">{currentUser.name}</p>
-            <p className="text-sm text-gray-500">영업팀</p>
-          </div>
+      <section className="mx-3 mt-3 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <h2 className="px-4 pt-3 pb-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          현재 사용자
+        </h2>
+        <div className="flex gap-2 px-4 pb-4">
+          {members.map((member) => {
+            const selected = member.id === currentUserId;
+            return (
+              <button
+                key={member.id}
+                type="button"
+                onClick={() => setCurrentUserId(member.id)}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                  selected
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {member.name}
+              </button>
+            );
+          })}
         </div>
-      )}
+        {currentUser && (
+          <div className="flex items-center gap-3 px-4 pb-4 pt-0 border-t border-gray-50">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
+              style={{ backgroundColor: currentUser.color }}
+            >
+              {currentUser.name[0]}
+            </div>
+            <div>
+              <p className="font-medium text-sm">{currentUser.name}</p>
+              <p className="text-xs text-gray-500">영업팀</p>
+            </div>
+          </div>
+        )}
+      </section>
 
       <div className="px-3 pt-3 space-y-3">
         {sections.map((section) => (

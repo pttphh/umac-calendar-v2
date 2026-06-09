@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, useCurrentUserId } from '../../store/useAppStore';
 import { FormHeader } from '../common/FormHeader';
 import { MemberPill } from '../common/MemberPill';
-import { CURRENT_USER_ID } from '../../types';
 
 const COLORS = ['#1a73e8', '#34a853', '#ea4335', '#fbbc04', '#9c27b0', '#00bcd4', '#ff5722'];
 
@@ -15,12 +14,13 @@ export function CalendarForm() {
   const updateCalendar = useAppStore((s) => s.updateCalendar);
   const calendars = useAppStore((s) => s.calendars);
   const members = useAppStore((s) => s.members);
+  const currentUserId = useCurrentUserId();
 
   const existing = editingId ? calendars.find((c) => c.id === editingId) : null;
 
   const [name, setName] = useState('');
   const [color, setColor] = useState(COLORS[0]);
-  const [writerIds, setWriterIds] = useState<string[]>([CURRENT_USER_ID]);
+  const [writerIds, setWriterIds] = useState<string[]>([currentUserId]);
   const [viewerIds, setViewerIds] = useState<string[]>([]);
   const [showWriterAdd, setShowWriterAdd] = useState(false);
   const [showViewerAdd, setShowViewerAdd] = useState(false);
@@ -36,12 +36,12 @@ export function CalendarForm() {
     } else {
       setName('');
       setColor(COLORS[0]);
-      setWriterIds([CURRENT_USER_ID]);
+      setWriterIds([currentUserId]);
       setViewerIds([]);
     }
     setShowWriterAdd(false);
     setShowViewerAdd(false);
-  }, [isOpen, editingId, calendars]);
+  }, [isOpen, editingId, calendars, currentUserId]);
 
   const handleSave = () => {
     if (!name.trim() || writerIds.length === 0) return;
