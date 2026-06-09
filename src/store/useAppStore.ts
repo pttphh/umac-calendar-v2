@@ -383,5 +383,7 @@ export const useAppStore = create<AppStore>()(
 );
 
 export function useUnreadCount(): number {
-  return useAppStore((s) => s.notifications.filter((n) => !n.isRead).length);
+  return useAppStore(
+    (s) => s.notifications.filter((n) => !n.isRead && n.type === 'comment_added').length
+  );
 }

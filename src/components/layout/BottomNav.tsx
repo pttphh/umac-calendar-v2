@@ -39,7 +39,9 @@ export function BottomNav() {
       isCalendarFormOpen: s.isCalendarFormOpen,
       isCalendarMgmtOpen: s.isCalendarMgmtOpen,
       dayPopupDate: s.dayPopupDate,
-      unreadCount: s.notifications.filter((n) => !n.isRead).length,
+      unreadCount: s.notifications.filter(
+        (n) => !n.isRead && n.type === 'comment_added'
+      ).length,
       isSearchOpen: s.isSearchOpen,
       searchQuery: s.searchQuery,
       openSearch: s.openSearch,

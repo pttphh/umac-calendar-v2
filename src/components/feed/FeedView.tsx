@@ -2,8 +2,6 @@ import { useState, useMemo } from 'react';
 import { Filter } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { formatDateTime } from '../../utils/dateUtils';
-import type { FeedNotification } from '../../types';
-
 export function FeedView() {
   const [subTab, setSubTab] = useState<'comments' | 'files'>('comments');
   const [mcFilter, setMcFilter] = useState<string | null>(null);
@@ -16,14 +14,12 @@ export function FeedView() {
   const openEventDetail = useAppStore((s) => s.openEventDetail);
 
   const { unreadItems, readItems } = useMemo(() => {
-    const byEvent = new Map<string, FeedNotification[]>();
-    for (const n of notifications) {
-      const list = byEvent.get(n.eventId) ?? [];
-      list.push(n);
-      byEvent.set(n.eventId, list);
-    }
+    // 목록: 댓글이 하나라도 있는 일정 전체 (내 댓글 포함)
+    const eventIdsWithComments = [
+      ...new Set(comments.map((c) => c.eventId)),
+    ];
 
-    const items = Array.from(byEvent.entries()).map(([eventId, notifs]) => {
+    const items = eventIdsWithComments.map((eventId) => {
       const event = events.find((e) => e.id === eventId);
       const mc = event?.meetingContactId
         ? meetingContacts.find((m) => m.id === event.meetingContactId)
@@ -37,26 +33,31 @@ export function FeedView() {
         ? members.find((m) => cal?.writerIds.includes(m.id)) ?? null
         : null;
 
-      const latestNotif = [...notifs].sort((a, b) =>
+      const eventNotifs = notifications.filter((n) => n.eventId === eventId);
+      const latestNotif = [...eventNotifs].sort((a, b) =>
         b.createdAt.localeCompare(a.createdAt)
       )[0];
+
       const latestCommentTime = latest?.createdAt ?? '';
+      const latestNotifTime = latestNotif?.createdAt ?? '';
       const sortTime =
-        latestNotif.createdAt > latestCommentTime
-          ? latestNotif.createdAt
-          : latestCommentTime;
+        latestCommentTime > latestNotifTime ? latestCommentTime : latestNotifTime;
+
+      // 미읽음 배지: 타인 댓글 알림(comment_added)만 카운트 (내 댓글은 알림 미생성)
+      const unreadCount = eventNotifs.filter(
+        (n) => !n.isRead && n.type === 'comment_added'
+      ).length;
 
       return {
         eventId,
-        notif: latestNotif,
-        isUnread: notifs.some((n) => !n.isRead),
+        isUnread: unreadCount > 0,
         sortTime,
         event,
         mc,
         latest,
         writer,
         commentCount: evComments.length,
-        unreadCount: notifs.filter((n) => !n.isRead).length,
+        unreadCount,
       };
     });
 
@@ -122,7 +123,7 @@ export function FeedView() {
             </>
           )}
           {!hasFeedItems && (
-            <p className="text-center text-gray-400 py-12">알림이 없습니다</p>
+            <p className="text-center text-gray-400 py-12">댓글이 있는 일정이 없습니다</p>
           )}
         </div>
       ) : (
@@ -206,7 +207,6 @@ export function FeedView() {
 interface FeedItemProps {
   item: {
     eventId: string;
-    notif: { eventId: string };
     event?: { title: string; startDateTime: string };
     mc?: { name: string } | null;
     writer?: { name: string; color: string } | null;
