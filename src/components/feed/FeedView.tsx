@@ -25,6 +25,7 @@ interface FeedGroup {
   name: string;
   unreadCount: number;
   latestCommentTime: string;
+  latestCommentPreview: string;
   events: FeedEventItem[];
 }
 
@@ -84,6 +85,7 @@ export function FeedView() {
         existing.unreadCount += unreadCount;
         if (latest.createdAt > existing.latestCommentTime) {
           existing.latestCommentTime = latest.createdAt;
+          existing.latestCommentPreview = commentText;
         }
       } else {
         const mc =
@@ -95,6 +97,7 @@ export function FeedView() {
           name: mc?.name ?? '내부',
           unreadCount,
           latestCommentTime: latest.createdAt,
+          latestCommentPreview: commentText,
           events: [eventItem],
         });
       }
@@ -158,35 +161,47 @@ export function FeedView() {
           ) : (
             feedGroups.map((group) => {
               const expanded = isGroupExpanded(group);
+              const hasUnread = group.unreadCount > 0;
               return (
                 <div key={group.key} className="border-b border-gray-100">
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.key, expanded)}
-                    className="w-full flex items-center gap-2 px-4 py-3 bg-white text-left"
+                    className="w-full px-4 py-3 bg-white text-left"
                   >
-                    <span className="font-bold text-gray-900 truncate flex items-center gap-1.5">
-                      {group.name}
-                      {group.unreadCount > 0 && (
-                        <span className="text-primary text-[10px] leading-none">●</span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`truncate ${
+                          hasUnread ? 'font-bold text-primary' : 'text-gray-400'
+                        }`}
+                      >
+                        {group.name}
+                      </span>
+                      <span className="flex-1" />
+                      {expanded ? (
+                        <ChevronDown size={18} className="text-gray-400 shrink-0" />
+                      ) : (
+                        <ChevronRight size={18} className="text-gray-400 shrink-0" />
                       )}
-                    </span>
-                    <span className="flex-1" />
-                    {expanded ? (
-                      <ChevronDown size={18} className="text-gray-400 shrink-0" />
-                    ) : (
-                      <ChevronRight size={18} className="text-gray-400 shrink-0" />
+                    </div>
+                    {!expanded && group.latestCommentPreview && (
+                      <p className="text-xs text-gray-400 mt-1 truncate pr-6">
+                        {group.latestCommentPreview}
+                      </p>
                     )}
                   </button>
 
-                  {expanded &&
-                    group.events.map((item) => (
-                      <FeedEventCard
-                        key={item.eventId}
-                        item={item}
-                        onOpen={openEventDetail}
-                      />
-                    ))}
+                  {expanded && (
+                    <div className="px-4 pb-3 flex flex-col gap-2">
+                      {group.events.map((item) => (
+                        <FeedEventCard
+                          key={item.eventId}
+                          item={item}
+                          onOpen={openEventDetail}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -282,28 +297,32 @@ function FeedEventCard({ item, onOpen }: FeedEventCardProps) {
     <button
       type="button"
       onClick={() => onOpen(item.eventId)}
-      className="w-full flex text-left bg-white border-t border-gray-50"
+      className="w-full flex text-left bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden"
     >
       <div
-        className="w-1 shrink-0 self-stretch"
-        style={{ backgroundColor: item.calendarColor }}
+        className="w-1 shrink-0 self-stretch rounded-l-lg"
+        style={{ backgroundColor: item.calendarColor, minWidth: 4 }}
       />
-      <div className="flex-1 min-w-0 px-3 py-3 flex gap-2">
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-gray-900 truncate">{item.title}</p>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {formatEventSchedule(item.startDateTime, item.isAllDay)}
+      <div className="flex-1 min-w-0 px-3 py-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-bold text-[16px] text-gray-900 truncate leading-snug">
+            {item.title}
           </p>
-          <p className="text-sm text-gray-600 mt-2 truncate">{latestComment.text}</p>
-          <p className="text-xs text-gray-400 mt-0.5 truncate">
-            {latestComment.authorName} · {formatFeedDateTime(latestComment.createdAt)}
-          </p>
+          {item.unreadCount > 0 && (
+            <span className="shrink-0 min-w-[22px] h-[22px] px-1 bg-unread text-white text-xs font-bold rounded-full flex items-center justify-center">
+              {item.unreadCount}
+            </span>
+          )}
         </div>
-        {item.unreadCount > 0 && (
-          <span className="shrink-0 min-w-[22px] h-[22px] px-1 bg-unread text-white text-xs font-bold rounded-full flex items-center justify-center self-start mt-0.5">
-            {item.unreadCount}
-          </span>
-        )}
+        <p className="text-[13px] text-gray-500 mt-1">
+          {formatEventSchedule(item.startDateTime, item.isAllDay)}
+        </p>
+        <p className="text-[14px] text-gray-900 mt-2 truncate leading-snug">
+          {latestComment.text}
+        </p>
+        <p className="text-[12px] text-gray-400 mt-1 truncate">
+          {latestComment.authorName} · {formatFeedDateTime(latestComment.createdAt)}
+        </p>
       </div>
     </button>
   );
