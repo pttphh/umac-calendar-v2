@@ -5,7 +5,7 @@ import { CURRENT_USER_ID } from '../../types';
 export function MoreView() {
   const members = useAppStore((s) => s.members);
   const setCurrentTab = useAppStore((s) => s.setCurrentTab);
-  const openCalendarForm = useAppStore((s) => s.openCalendarForm);
+  const openCalendarMgmt = useAppStore((s) => s.openCalendarMgmt);
   const currentUser = members.find((m) => m.id === CURRENT_USER_ID);
 
   const sections = [
@@ -19,7 +19,7 @@ export function MoreView() {
     {
       title: '관리',
       items: [
-        { label: '캘린더 관리', action: () => openCalendarForm() },
+        { label: '캘린더 관리', action: () => openCalendarMgmt() },
         { label: '미팅처 관리', action: () => setCurrentTab('meeting') },
         { label: '상품 관리 (추후 설정 예정)', action: () => {}, disabled: true },
       ],

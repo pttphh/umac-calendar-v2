@@ -82,7 +82,7 @@ export interface FeedNotification {
   createdAt: string;
 }
 
-export type AppTab = 'calendar' | 'feed' | 'meeting' | 'more' | 'search';
+export type AppTab = 'calendar' | 'feed' | 'meeting' | 'more';
 
 export interface ExpandedEvent extends CalendarEvent {
   occurrenceDate: string;

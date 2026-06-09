@@ -41,9 +41,12 @@ interface AppStore {
   selectedMeetingId: string | null;
   isMeetingFormOpen: boolean;
   editingMeetingId: string | null;
+  isCalendarMgmtOpen: boolean;
   isCalendarFormOpen: boolean;
   editingCalendarId: string | null;
   showEventDetail: boolean;
+  isSearchOpen: boolean;
+  searchQuery: string;
 
   unreadCount: number;
 
@@ -59,11 +62,17 @@ interface AppStore {
   closeMeetingDetail: () => void;
   openMeetingForm: (id?: string) => void;
   closeMeetingForm: () => void;
+  openCalendarMgmt: () => void;
+  closeCalendarMgmt: () => void;
   openCalendarForm: (id?: string) => void;
   closeCalendarForm: () => void;
+  openSearch: () => void;
+  closeSearch: () => void;
+  setSearchQuery: (query: string) => void;
 
   addCalendar: (cal: Omit<Calendar, 'id'>) => void;
   updateCalendar: (id: string, updates: Partial<Calendar>) => void;
+  deleteCalendar: (id: string) => void;
   toggleCalendarVisibility: (id: string) => void;
   addEvent: (event: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateEvent: (id: string, updates: Partial<CalendarEvent>) => void;
@@ -119,9 +128,12 @@ export const useAppStore = create<AppStore>()(
       selectedMeetingId: null,
       isMeetingFormOpen: false,
       editingMeetingId: null,
+      isCalendarMgmtOpen: false,
       isCalendarFormOpen: false,
       editingCalendarId: null,
       showEventDetail: false,
+      isSearchOpen: false,
+      searchQuery: '',
 
       unreadCount: 0,
 
@@ -159,10 +171,18 @@ export const useAppStore = create<AppStore>()(
       closeMeetingForm: () =>
         set({ isMeetingFormOpen: false, editingMeetingId: null }),
 
+      openCalendarMgmt: () => set({ isCalendarMgmtOpen: true }),
+      closeCalendarMgmt: () =>
+        set({ isCalendarMgmtOpen: false, isCalendarFormOpen: false, editingCalendarId: null }),
+
       openCalendarForm: (id) =>
         set({ isCalendarFormOpen: true, editingCalendarId: id ?? null }),
       closeCalendarForm: () =>
         set({ isCalendarFormOpen: false, editingCalendarId: null }),
+
+      openSearch: () => set({ isSearchOpen: true }),
+      closeSearch: () => set({ isSearchOpen: false, searchQuery: '' }),
+      setSearchQuery: (query) => set({ searchQuery: query }),
 
       addCalendar: (cal) => {
         const id = generateId('cal');
@@ -172,6 +192,12 @@ export const useAppStore = create<AppStore>()(
       updateCalendar: (id, updates) => {
         set((s) => ({
           calendars: s.calendars.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+        }));
+      },
+
+      deleteCalendar: (id) => {
+        set((s) => ({
+          calendars: s.calendars.filter((c) => c.id !== id),
         }));
       },
 

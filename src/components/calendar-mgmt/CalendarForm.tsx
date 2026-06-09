@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { FormHeader } from '../common/FormHeader';
 import { MemberPill } from '../common/MemberPill';
+import { CURRENT_USER_ID } from '../../types';
 
 const COLORS = ['#1a73e8', '#34a853', '#ea4335', '#fbbc04', '#9c27b0', '#00bcd4', '#ff5722'];
 
@@ -17,19 +18,37 @@ export function CalendarForm() {
 
   const existing = editingId ? calendars.find((c) => c.id === editingId) : null;
 
-  const [name, setName] = useState(existing?.name ?? '');
-  const [color, setColor] = useState(existing?.color ?? COLORS[0]);
-  const [writerIds, setWriterIds] = useState<string[]>(existing?.writerIds ?? []);
-  const [viewerIds, setViewerIds] = useState<string[]>(existing?.viewerIds ?? []);
+  const [name, setName] = useState('');
+  const [color, setColor] = useState(COLORS[0]);
+  const [writerIds, setWriterIds] = useState<string[]>([CURRENT_USER_ID]);
+  const [viewerIds, setViewerIds] = useState<string[]>([]);
   const [showWriterAdd, setShowWriterAdd] = useState(false);
   const [showViewerAdd, setShowViewerAdd] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const cal = editingId ? calendars.find((c) => c.id === editingId) : null;
+    if (cal) {
+      setName(cal.name);
+      setColor(cal.color);
+      setWriterIds(cal.writerIds);
+      setViewerIds(cal.viewerIds);
+    } else {
+      setName('');
+      setColor(COLORS[0]);
+      setWriterIds([CURRENT_USER_ID]);
+      setViewerIds([]);
+    }
+    setShowWriterAdd(false);
+    setShowViewerAdd(false);
+  }, [isOpen, editingId, calendars]);
 
   const handleSave = () => {
     if (!name.trim() || writerIds.length === 0) return;
     const payload = {
       name: name.trim(),
       color,
-      isVisible: true,
+      isVisible: existing?.isVisible ?? true,
       writerIds,
       viewerIds,
     };
@@ -62,12 +81,13 @@ export function CalendarForm() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full border-b-2 border-primary py-2 outline-none text-lg"
+            placeholder="캘린더 이름 입력"
           />
         </div>
 
         <div>
           <label className="text-xs text-gray-500 mb-2 block">색상 선택</label>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             {COLORS.map((c) => (
               <button
                 key={c}
@@ -89,7 +109,10 @@ export function CalendarForm() {
           showAdd={showWriterAdd}
           onToggleAdd={() => setShowWriterAdd(!showWriterAdd)}
           available={availableWriters}
-          onAdd={(id) => { setWriterIds((prev) => [...prev, id]); setShowWriterAdd(false); }}
+          onAdd={(id) => {
+            setWriterIds((prev) => [...prev, id]);
+            setShowWriterAdd(false);
+          }}
         />
 
         <MemberSection
@@ -101,35 +124,15 @@ export function CalendarForm() {
           showAdd={showViewerAdd}
           onToggleAdd={() => setShowViewerAdd(!showViewerAdd)}
           available={availableViewers}
-          onAdd={(id) => { setViewerIds((prev) => [...prev, id]); setShowViewerAdd(false); }}
+          onAdd={(id) => {
+            setViewerIds((prev) => [...prev, id]);
+            setShowViewerAdd(false);
+          }}
         />
 
         <p className="text-xs text-gray-400">
           작성자·공유자는 알림과 무관합니다. 알림은 일정 등록 시 별도 설정합니다.
         </p>
-
-        {!editingId && calendars.length > 0 && (
-          <div className="border-t pt-4">
-            <p className="text-xs text-gray-500 mb-2">기존 캘린더</p>
-            {calendars.map((cal) => (
-              <button
-                key={cal.id}
-                type="button"
-                onClick={() => {
-                  setName(cal.name);
-                  setColor(cal.color);
-                  setWriterIds(cal.writerIds);
-                  setViewerIds(cal.viewerIds);
-                  useAppStore.getState().openCalendarForm(cal.id);
-                }}
-                className="flex items-center gap-2 w-full py-2 text-sm"
-              >
-                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: cal.color }} />
-                {cal.name}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -178,16 +181,20 @@ function MemberSection({
       </button>
       {showAdd && (
         <div className="mt-2 border rounded-lg">
-          {available.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => onAdd(m.id)}
-              className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
-            >
-              {m.name}
-            </button>
-          ))}
+          {available.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-gray-400">추가할 멤버가 없습니다</p>
+          ) : (
+            available.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => onAdd(m.id)}
+                className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+              >
+                {m.name}
+              </button>
+            ))
+          )}
         </div>
       )}
     </div>
