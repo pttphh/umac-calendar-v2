@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef } from 'react';
-import { ArrowLeft, Camera, Send, Paperclip } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { ArrowLeft, Camera, Send, Paperclip, Plus, X } from 'lucide-react';
 import { useAppStore, useCurrentUserId } from '../../store/useAppStore';
 import { formatDateTime, formatTime } from '../../utils/dateUtils';
 import { parseISO, format } from 'date-fns';
@@ -20,10 +20,23 @@ export function EventDetail() {
   const currentUserId = useCurrentUserId();
 
   const [commentText, setCommentText] = useState('');
+  const [notifyIds, setNotifyIds] = useState<string[]>([]);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [showMemberAdd, setShowMemberAdd] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const event = events.find((e) => e.id === selectedEventId);
+
+  useEffect(() => {
+    if (event) {
+      setNotifyIds(event.notifyMemberIds);
+    } else {
+      setNotifyIds([]);
+    }
+    setMemberSearch('');
+    setShowMemberAdd(false);
+  }, [event?.id, event?.notifyMemberIds]);
   const cal = event ? calendars.find((c) => c.id === event.calendarId) : null;
   const mc = event?.meetingContactId
     ? meetingContacts.find((m) => m.id === event.meetingContactId)
@@ -58,14 +71,25 @@ export function EventDetail() {
     );
   }, [event, comments, activityLogs, members, cal]);
 
+  const memberFiltered = useMemo(() => {
+    if (!memberSearch.trim()) return [];
+    const q = memberSearch.toLowerCase();
+    return members.filter(
+      (m) => m.name.toLowerCase().includes(q) && !notifyIds.includes(m.id)
+    );
+  }, [memberSearch, members, notifyIds]);
+
   const handleSend = () => {
     if (!commentText.trim() || !event || !currentUser) return;
-    addComment({
-      eventId: event.id,
-      authorId: currentUser.id,
-      authorName: currentUser.name,
-      text: commentText.trim(),
-    });
+    addComment(
+      {
+        eventId: event.id,
+        authorId: currentUser.id,
+        authorName: currentUser.name,
+        text: commentText.trim(),
+      },
+      notifyIds
+    );
     setCommentText('');
   };
 
@@ -81,24 +105,30 @@ export function EventDetail() {
     const file = e.target.files?.[0];
     if (!file || !event || !currentUser) return;
     const url = URL.createObjectURL(file);
-    addComment({
-      eventId: event.id,
-      authorId: currentUser.id,
-      authorName: currentUser.name,
-      imageUrl: url,
-    });
+    addComment(
+      {
+        eventId: event.id,
+        authorId: currentUser.id,
+        authorName: currentUser.name,
+        imageUrl: url,
+      },
+      notifyIds
+    );
     e.target.value = '';
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !event || !currentUser) return;
-    addComment({
-      eventId: event.id,
-      authorId: currentUser.id,
-      authorName: currentUser.name,
-      text: `📎 ${file.name}`,
-    });
+    addComment(
+      {
+        eventId: event.id,
+        authorId: currentUser.id,
+        authorName: currentUser.name,
+        text: `📎 ${file.name}`,
+      },
+      notifyIds
+    );
     e.target.value = '';
   };
 
@@ -164,7 +194,7 @@ export function EventDetail() {
       )}
 
       {/* 타임라인 */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 pb-20">
+      <div className="flex-1 overflow-y-auto px-4 py-3 pb-36">
         {timeline.map((item) => {
           const dateLabel = getDateLabel(item.date);
           const showPill = dateLabel !== lastDateLabel;
@@ -214,40 +244,101 @@ export function EventDetail() {
         })}
       </div>
 
-      {/* 입력바 */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] flex items-center gap-2 px-4 py-3 bg-white border-t border-gray-200">
-        {/* 이미지 첨부 */}
-        <button type="button" onClick={handleImageAttach} className="text-gray-500">
-          <Camera size={22} />
-        </button>
-        <input
-          ref={imageInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleImageChange}
-        />
-        {/* 파일 첨부 */}
-        <button type="button" onClick={handleFileAttach} className="text-gray-500">
-          <Paperclip size={22} />
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-        <input
-          type="text"
-          value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="댓글 입력"
-          className="flex-1 border rounded-full px-4 py-2 text-sm"
-        />
-        <button type="button" onClick={handleSend} className="text-primary">
-          <Send size={22} />
-        </button>
+      {/* 알림 대상 + 입력바 */}
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white border-t border-gray-200">
+        <div className="px-4 py-2 border-b border-gray-100">
+          <p className="text-xs text-gray-500 mb-1.5">알림 받을 사람</p>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {notifyIds.map((id) => {
+              const m = members.find((mem) => mem.id === id);
+              if (!m) return null;
+              return (
+                <span
+                  key={id}
+                  className="inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
+                >
+                  {m.name}
+                  <button
+                    type="button"
+                    onClick={() => setNotifyIds((prev) => prev.filter((x) => x !== id))}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setShowMemberAdd((v) => !v)}
+              className="inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full border border-gray-300 text-gray-500"
+            >
+              <Plus size={12} />
+              추가
+            </button>
+          </div>
+          {showMemberAdd && (
+            <div className="mt-2">
+              <input
+                type="text"
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                placeholder="이름 검색"
+                className="w-full border rounded px-2 py-1.5 text-sm"
+                autoFocus
+              />
+              {memberFiltered.length > 0 && (
+                <div className="mt-1 bg-white border rounded-lg max-h-28 overflow-y-auto shadow-sm">
+                  {memberFiltered.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setNotifyIds((prev) => [...prev, m.id]);
+                        setMemberSearch('');
+                      }}
+                      className="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-sm"
+                    >
+                      {m.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2 px-4 py-3">
+          <button type="button" onClick={handleImageAttach} className="text-gray-500">
+            <Camera size={22} />
+          </button>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageChange}
+          />
+          <button type="button" onClick={handleFileAttach} className="text-gray-500">
+            <Paperclip size={22} />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <input
+            type="text"
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="댓글 입력"
+            className="flex-1 border rounded-full px-4 py-2 text-sm"
+          />
+          <button type="button" onClick={handleSend} className="text-primary">
+            <Send size={22} />
+          </button>
+        </div>
       </div>
     </div>
   );

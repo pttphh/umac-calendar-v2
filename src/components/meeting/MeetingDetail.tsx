@@ -42,12 +42,16 @@ export function MeetingDetail() {
 
   const handleSend = () => {
     if (!commentText.trim() || mcEvents.length === 0 || !currentUser) return;
-    addComment({
-      eventId: mcEvents[mcEvents.length - 1].id,
-      authorId: currentUser.id,
-      authorName: currentUser.name,
-      text: commentText.trim(),
-    });
+    const targetEvent = mcEvents[mcEvents.length - 1];
+    addComment(
+      {
+        eventId: targetEvent.id,
+        authorId: currentUser.id,
+        authorName: currentUser.name,
+        text: commentText.trim(),
+      },
+      targetEvent.notifyMemberIds
+    );
     setCommentText('');
   };
 

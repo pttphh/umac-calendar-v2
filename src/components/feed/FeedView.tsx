@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Filter } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
-import { formatDateTime } from '../../utils/dateUtils';
+import { formatDateChip, formatDateTime, formatTime } from '../../utils/dateUtils';
 import { countUnreadCommentNotificationsForEvent } from '../../utils/notifications';
 
 export function FeedView() {
@@ -184,9 +184,10 @@ export function FeedView() {
 interface FeedItemProps {
   item: {
     eventId: string;
-    event?: { title: string; createdAt?: string };
+    event?: { title: string; startDateTime: string; createdAt?: string };
     mc?: { name: string } | null;
     writer?: { name: string; color: string } | null;
+    latest?: { createdAt: string };
     preview: string;
     unreadCount: number;
     displayTime: string;
@@ -204,10 +205,17 @@ function FeedItem({ item, onOpen }: FeedItemProps) {
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <span className="font-semibold text-gray-900 truncate">{item.event?.title}</span>
-            {item.displayTime && (
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <span className="font-semibold text-gray-900 truncate">{item.event?.title}</span>
+              {item.event?.startDateTime && (
+                <span className="text-xs text-gray-400 shrink-0">
+                  {formatDateChip(item.event.startDateTime)}
+                </span>
+              )}
+            </div>
+            {item.displayTime && item.latest && (
               <span className="text-xs text-gray-400 shrink-0">
-                {formatDateTime(item.displayTime)}
+                {formatTime(item.displayTime)}
               </span>
             )}
           </div>
@@ -218,10 +226,7 @@ function FeedItem({ item, onOpen }: FeedItemProps) {
               </span>
             )}
             {item.writer && (
-              <span
-                className="text-[10px] px-2 py-0.5 rounded-full text-white"
-                style={{ backgroundColor: item.writer.color }}
-              >
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                 {item.writer.name}
               </span>
             )}

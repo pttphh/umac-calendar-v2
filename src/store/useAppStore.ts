@@ -80,7 +80,7 @@ interface AppStore {
   addEvent: (event: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateEvent: (id: string, updates: Partial<CalendarEvent>) => void;
   deleteEvent: (id: string) => void;
-  addComment: (comment: Omit<Comment, 'id' | 'createdAt'>) => void;
+  addComment: (comment: Omit<Comment, 'id' | 'createdAt'>, notifyMemberIds: string[]) => void;
   addMeetingContact: (mc: Omit<MeetingContact, 'id'>) => void;
   updateMeetingContact: (id: string, updates: Partial<MeetingContact>) => void;
   markAllNotificationsRead: () => void;
@@ -305,27 +305,19 @@ export const useAppStore = create<AppStore>()(
         }));
       },
 
-      addComment: (comment) => {
+      addComment: (comment, notifyMemberIds) => {
         const now = new Date().toISOString();
         const id = generateId('cmt');
         const newComment: Comment = { ...comment, id, createdAt: now };
         const event = get().events.find((e) => e.id === comment.eventId);
         if (!event) return;
 
-        const currentUserId = get().currentUserId;
-        const isOwnComment = comment.authorId === currentUserId;
+        const targetIds = notifyMemberIds.filter((mid) => mid !== comment.authorId);
 
-        if (isOwnComment) {
+        if (targetIds.length === 0) {
           set((s) => ({ comments: [...s.comments, newComment] }));
           return;
         }
-
-        const commenterIds = get()
-          .comments.filter((c) => c.eventId === comment.eventId)
-          .map((c) => c.authorId);
-        const targetIds = [
-          ...new Set([...event.notifyMemberIds, ...commenterIds, comment.authorId]),
-        ].filter((mid) => mid !== comment.authorId);
 
         const textPreview = comment.text
           ? comment.text.slice(0, 20) + (comment.text.length > 20 ? '...' : '')
