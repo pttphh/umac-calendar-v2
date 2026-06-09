@@ -42,6 +42,28 @@ export function formatDateTime(dateTime: string): string {
   return `${format(d, 'M/d (EEE)', { locale: ko })} ${format(d, 'HH:mm')}`;
 }
 
+/** 피드용: "오늘, 오후 4:30" / "6/9 (월), 오후 4:30" */
+export function formatFeedDateTime(dateTime: string): string {
+  const d = parseISO(dateTime);
+  const hour = d.getHours();
+  const minute = format(d, 'mm');
+  const period = hour < 12 ? '오전' : '오후';
+  const hour12 = hour % 12 || 12;
+  const timeStr = `${period} ${hour12}:${minute}`;
+  if (isToday(d)) return `오늘, ${timeStr}`;
+  return `${format(d, 'M/d (EEE)', { locale: ko })}, ${timeStr}`;
+}
+
+export function formatEventSchedule(dateTime: string, isAllDay: boolean): string {
+  if (isAllDay || dateTime.length <= 10) return formatDateLong(dateTime);
+  const d = parseISO(dateTime);
+  const hour = d.getHours();
+  const minute = format(d, 'mm');
+  const period = hour < 12 ? '오전' : '오후';
+  const hour12 = hour % 12 || 12;
+  return `${format(d, 'M/d (EEE)', { locale: ko })} ${period} ${hour12}:${minute}`;
+}
+
 export function formatDatePill(dateStr: string): string {
   const d = parseISO(dateStr);
   return format(d, 'M월 d일 (EEE)', { locale: ko });
