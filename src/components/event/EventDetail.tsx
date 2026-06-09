@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { ArrowLeft, Camera, Send, StickyNote, X } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { ArrowLeft, Camera, Send, Paperclip } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { formatDateTime, formatTime } from '../../utils/dateUtils';
 import { CURRENT_USER_ID } from '../../types';
@@ -20,7 +20,8 @@ export function EventDetail() {
   const members = useAppStore((s) => s.members);
 
   const [commentText, setCommentText] = useState('');
-  const [showMemo, setShowMemo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const event = events.find((e) => e.id === selectedEventId);
   const cal = event ? calendars.find((c) => c.id === event.calendarId) : null;
@@ -69,22 +70,47 @@ export function EventDetail() {
   };
 
   const handleImageAttach = () => {
-    if (!event || !currentUser) return;
+    imageInputRef.current?.click();
+  };
+
+  const handleFileAttach = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !event || !currentUser) return;
+    const url = URL.createObjectURL(file);
     addComment({
       eventId: event.id,
       authorId: currentUser.id,
       authorName: currentUser.name,
-      imageUrl: 'https://placehold.co/200x150/e8f0fe/1a73e8?text=Image',
+      imageUrl: url,
     });
+    e.target.value = '';
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !event || !currentUser) return;
+    addComment({
+      eventId: event.id,
+      authorId: currentUser.id,
+      authorName: currentUser.name,
+      text: `📎 ${file.name}`,
+    });
+    e.target.value = '';
   };
 
   if (!showEventDetail || !event) return null;
 
   let lastDateLabel = '';
-  const getDateLabel = (iso: string) => format(parseISO(iso), 'M월 d일 (EEE)', { locale: undefined });
+  const getDateLabel = (iso: string) =>
+    format(parseISO(iso), 'M월 d일 (EEE)', { locale: undefined });
 
   return (
     <div className="fixed inset-0 z-[90] bg-white flex flex-col">
+      {/* 헤더 */}
       <header className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
         <button type="button" onClick={closeEventDetail}>
           <ArrowLeft size={22} />
@@ -118,6 +144,7 @@ export function EventDetail() {
         )}
       </header>
 
+      {/* 메타 정보 (캘린더 | 미팅처) */}
       <div className="px-4 py-2 flex items-center gap-2 text-sm text-gray-500 border-b border-gray-100">
         <span>{cal?.name}</span>
         {mc && (
@@ -126,17 +153,17 @@ export function EventDetail() {
             <span>{mc.name}</span>
           </>
         )}
-        {event.memo && (
-          <button
-            type="button"
-            onClick={() => setShowMemo(true)}
-            className="ml-auto flex items-center gap-1 text-primary"
-          >
-            <StickyNote size={14} /> 메모
-          </button>
-        )}
       </div>
 
+      {/* 메모 인라인 표시 (팝업 제거) */}
+      {event.memo && (
+        <div className="mx-4 mt-3 mb-1 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+          <p className="text-xs text-yellow-700 font-medium mb-1">📝 메모</p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{event.memo}</p>
+        </div>
+      )}
+
+      {/* 타임라인 */}
       <div className="flex-1 overflow-y-auto px-4 py-3 pb-20">
         {timeline.map((item) => {
           const dateLabel = getDateLabel(item.date);
@@ -187,10 +214,29 @@ export function EventDetail() {
         })}
       </div>
 
+      {/* 입력바 */}
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] flex items-center gap-2 px-4 py-3 bg-white border-t border-gray-200">
+        {/* 이미지 첨부 */}
         <button type="button" onClick={handleImageAttach} className="text-gray-500">
           <Camera size={22} />
         </button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageChange}
+        />
+        {/* 파일 첨부 */}
+        <button type="button" onClick={handleFileAttach} className="text-gray-500">
+          <Paperclip size={22} />
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={handleFileChange}
+        />
         <input
           type="text"
           value={commentText}
@@ -203,20 +249,6 @@ export function EventDetail() {
           <Send size={22} />
         </button>
       </div>
-
-      {showMemo && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-6">
-          <div className="bg-white rounded-xl p-4 w-full max-w-sm">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-medium">메모</h3>
-              <button type="button" onClick={() => setShowMemo(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{event.memo}</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
