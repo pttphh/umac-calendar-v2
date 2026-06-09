@@ -138,20 +138,19 @@ export const useAppStore = create<AppStore>()(
       unreadCount: 0,
 
       setCurrentDate: (date) => set({ currentDate: date }),
-      setCurrentTab: (tab) => {
-        set((s) => ({
-          currentTab: tab,
-          notifications:
-            tab === 'feed'
-              ? s.notifications.map((n) => ({ ...n, isRead: true }))
-              : s.notifications,
-        }));
-      },
+      setCurrentTab: (tab) => set({ currentTab: tab }),
       setCalendarViewMode: (mode) => set({ calendarViewMode: mode }),
       setSelectedEventId: (id) => set({ selectedEventId: id }),
 
       openEventDetail: (id) =>
-        set({ selectedEventId: id, showEventDetail: true, dayPopupDate: null }),
+        set((s) => ({
+          selectedEventId: id,
+          showEventDetail: true,
+          dayPopupDate: null,
+          notifications: s.notifications.map((n) =>
+            n.eventId === id ? { ...n, isRead: true } : n
+          ),
+        })),
       closeEventDetail: () => set({ selectedEventId: null, showEventDetail: false }),
 
       openEventForm: (eventId, defaultDate) =>
@@ -300,6 +299,13 @@ export const useAppStore = create<AppStore>()(
         const newComment: Comment = { ...comment, id, createdAt: now };
         const event = get().events.find((e) => e.id === comment.eventId);
         if (!event) return;
+
+        const isOwnComment = comment.authorId === CURRENT_USER_ID;
+
+        if (isOwnComment) {
+          set((s) => ({ comments: [...s.comments, newComment] }));
+          return;
+        }
 
         const commenterIds = get()
           .comments.filter((c) => c.eventId === comment.eventId)

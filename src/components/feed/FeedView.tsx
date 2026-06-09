@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Filter } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { formatDateTime } from '../../utils/dateUtils';
+import type { FeedNotification } from '../../types';
 
 export function FeedView() {
   const [subTab, setSubTab] = useState<'comments' | 'files'>('comments');
@@ -14,32 +15,59 @@ export function FeedView() {
   const calendars = useAppStore((s) => s.calendars);
   const openEventDetail = useAppStore((s) => s.openEventDetail);
 
-  const unread = useMemo(
-    () => notifications.filter((n) => !n.isRead),
-    [notifications]
-  );
-  const read = useMemo(
-    () => notifications.filter((n) => n.isRead),
-    [notifications]
-  );
+  const { unreadItems, readItems } = useMemo(() => {
+    const byEvent = new Map<string, FeedNotification[]>();
+    for (const n of notifications) {
+      const list = byEvent.get(n.eventId) ?? [];
+      list.push(n);
+      byEvent.set(n.eventId, list);
+    }
 
-  const feedItems = useMemo(() => {
-    return [...unread, ...read].map((n) => {
-      const event = events.find((e) => e.id === n.eventId);
+    const items = Array.from(byEvent.entries()).map(([eventId, notifs]) => {
+      const event = events.find((e) => e.id === eventId);
       const mc = event?.meetingContactId
         ? meetingContacts.find((m) => m.id === event.meetingContactId)
         : null;
       const evComments = comments
-        .filter((c) => c.eventId === n.eventId)
+        .filter((c) => c.eventId === eventId)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       const latest = evComments[0];
       const cal = event ? calendars.find((c) => c.id === event.calendarId) : null;
       const writer = event
         ? members.find((m) => cal?.writerIds.includes(m.id)) ?? null
         : null;
-      return { notif: n, event, mc, latest, writer, commentCount: evComments.length };
+
+      const latestNotif = [...notifs].sort((a, b) =>
+        b.createdAt.localeCompare(a.createdAt)
+      )[0];
+      const latestCommentTime = latest?.createdAt ?? '';
+      const sortTime =
+        latestNotif.createdAt > latestCommentTime
+          ? latestNotif.createdAt
+          : latestCommentTime;
+
+      return {
+        eventId,
+        notif: latestNotif,
+        isUnread: notifs.some((n) => !n.isRead),
+        sortTime,
+        event,
+        mc,
+        latest,
+        writer,
+        commentCount: evComments.length,
+        unreadCount: notifs.filter((n) => !n.isRead).length,
+      };
     });
-  }, [unread, read, events, meetingContacts, comments, calendars, members]);
+
+    const sortDesc = (a: { sortTime: string }, b: { sortTime: string }) =>
+      b.sortTime.localeCompare(a.sortTime);
+
+    return {
+      unreadItems: items.filter((i) => i.isUnread).sort(sortDesc),
+      readItems: items.filter((i) => !i.isUnread).sort(sortDesc),
+    };
+  }, [notifications, events, meetingContacts, comments, calendars, members]);
 
   const imageComments = comments.filter((c) => c.imageUrl);
   const docComments = comments.filter((c) => c.text && c.text.includes('문서'));
@@ -50,6 +78,8 @@ export function FeedView() {
         return ev?.meetingContactId === mcFilter;
       })
     : imageComments;
+
+  const hasFeedItems = unreadItems.length > 0 || readItems.length > 0;
 
   return (
     <div className="pb-16">
@@ -75,27 +105,23 @@ export function FeedView() {
 
       {subTab === 'comments' ? (
         <div>
-          {unread.length > 0 && (
+          {unreadItems.length > 0 && (
             <>
               <div className="px-4 py-2 bg-gray-50 text-xs text-gray-500 font-medium">읽지 않음</div>
-              {feedItems
-                .filter((item) => !item.notif.isRead)
-                .map((item) => (
-                  <FeedItem key={item.notif.id} item={item} onOpen={openEventDetail} dimmed={false} />
-                ))}
+              {unreadItems.map((item) => (
+                <FeedItem key={item.eventId} item={item} onOpen={openEventDetail} isRead={false} />
+              ))}
             </>
           )}
-          {read.length > 0 && (
+          {readItems.length > 0 && (
             <>
               <div className="px-4 py-2 bg-gray-50 text-xs text-gray-500 font-medium">읽음</div>
-              {feedItems
-                .filter((item) => item.notif.isRead)
-                .map((item) => (
-                  <FeedItem key={item.notif.id} item={item} onOpen={openEventDetail} dimmed />
-                ))}
+              {readItems.map((item) => (
+                <FeedItem key={item.eventId} item={item} onOpen={openEventDetail} isRead />
+              ))}
             </>
           )}
-          {notifications.length === 0 && (
+          {!hasFeedItems && (
             <p className="text-center text-gray-400 py-12">알림이 없습니다</p>
           )}
         </div>
@@ -179,37 +205,54 @@ export function FeedView() {
 
 interface FeedItemProps {
   item: {
-    notif: { id: string; eventId: string; isRead: boolean; createdAt: string };
+    eventId: string;
+    notif: { eventId: string };
     event?: { title: string; startDateTime: string };
     mc?: { name: string } | null;
     writer?: { name: string; color: string } | null;
     latest?: { text?: string };
     commentCount: number;
+    unreadCount: number;
   };
   onOpen: (id: string) => void;
-  dimmed: boolean;
+  isRead: boolean;
 }
 
-function FeedItem({ item, onOpen, dimmed }: FeedItemProps) {
+function FeedItem({ item, onOpen, isRead }: FeedItemProps) {
   return (
     <button
       type="button"
-      onClick={() => onOpen(item.notif.eventId)}
-      className={`w-full text-left px-4 py-3 border-b border-gray-50 ${dimmed ? 'opacity-50' : ''}`}
+      onClick={() => onOpen(item.eventId)}
+      className={`relative w-full text-left py-3 pl-4 pr-4 border-b border-gray-100 ${
+        isRead ? 'bg-gray-50 text-gray-400' : 'bg-white'
+      }`}
     >
+      {!isRead && (
+        <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary" />
+      )}
       <div className="flex justify-between items-start">
-        <span className="font-medium">{item.event?.title}</span>
-        <span className="text-xs text-gray-400 shrink-0 ml-2">
+        <span className={isRead ? 'text-gray-400' : 'font-semibold text-gray-900'}>
+          {item.event?.title}
+        </span>
+        <span className={`text-xs shrink-0 ml-2 ${isRead ? 'text-gray-400' : 'text-gray-500'}`}>
           {item.event && formatDateTime(item.event.startDateTime)}
         </span>
       </div>
       <div className="flex gap-1.5 mt-1">
         {item.mc && (
-          <span className="text-[10px] px-2 py-0.5 bg-gray-100 rounded-full">{item.mc.name}</span>
+          <span
+            className={`text-[10px] px-2 py-0.5 rounded-full ${
+              isRead ? 'bg-gray-100 text-gray-400' : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            {item.mc.name}
+          </span>
         )}
         {item.writer && (
           <span
-            className="text-[10px] px-2 py-0.5 rounded-full text-white"
+            className={`text-[10px] px-2 py-0.5 rounded-full text-white ${
+              isRead ? 'opacity-60' : ''
+            }`}
             style={{ backgroundColor: item.writer.color }}
           >
             {item.writer.name}
@@ -217,11 +260,13 @@ function FeedItem({ item, onOpen, dimmed }: FeedItemProps) {
         )}
       </div>
       {item.latest?.text && (
-        <p className="text-sm text-gray-500 mt-2 line-clamp-2">{item.latest.text}</p>
+        <p className={`text-sm mt-2 line-clamp-2 ${isRead ? 'text-gray-400' : 'text-gray-500'}`}>
+          {item.latest.text}
+        </p>
       )}
-      {!dimmed && item.commentCount > 0 && (
+      {!isRead && item.unreadCount > 0 && (
         <span className="inline-flex mt-1 min-w-[18px] h-[18px] bg-unread text-white text-[10px] rounded-full items-center justify-center px-1">
-          {item.commentCount}
+          {item.unreadCount}
         </span>
       )}
     </button>
