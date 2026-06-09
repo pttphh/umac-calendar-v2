@@ -37,7 +37,7 @@ interface AppStore {
   editingEventId: string | null;
   eventFormDefaultDate: string | null;
   currentTab: AppTab;
-  isListView: boolean;
+  calendarViewMode: 'month' | 'week';
   selectedMeetingId: string | null;
   isMeetingFormOpen: boolean;
   editingMeetingId: string | null;
@@ -49,7 +49,7 @@ interface AppStore {
 
   setCurrentDate: (date: Date) => void;
   setCurrentTab: (tab: AppTab) => void;
-  setListView: (v: boolean) => void;
+  setCalendarViewMode: (mode: 'month' | 'week') => void;
   setSelectedEventId: (id: string | null) => void;
   openEventDetail: (id: string) => void;
   closeEventDetail: () => void;
@@ -115,7 +115,7 @@ export const useAppStore = create<AppStore>()(
       editingEventId: null,
       eventFormDefaultDate: null,
       currentTab: 'calendar',
-      isListView: false,
+      calendarViewMode: 'month',
       selectedMeetingId: null,
       isMeetingFormOpen: false,
       editingMeetingId: null,
@@ -135,7 +135,7 @@ export const useAppStore = create<AppStore>()(
               : s.notifications,
         }));
       },
-      setListView: (v) => set({ isListView: v }),
+      setCalendarViewMode: (mode) => set({ calendarViewMode: mode }),
       setSelectedEventId: (id) => set({ selectedEventId: id }),
 
       openEventDetail: (id) =>

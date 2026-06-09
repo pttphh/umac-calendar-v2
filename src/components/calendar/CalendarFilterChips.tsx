@@ -5,7 +5,7 @@ export function CalendarFilterChips() {
   const toggleCalendarVisibility = useAppStore((s) => s.toggleCalendarVisibility);
 
   return (
-    <div className="flex gap-2 px-3 py-2 overflow-x-auto scrollbar-hide">
+    <div className="flex gap-2 px-3 py-2 overflow-x-auto scrollbar-hide shrink-0">
       {calendars.map((cal) => (
         <button
           key={cal.id}

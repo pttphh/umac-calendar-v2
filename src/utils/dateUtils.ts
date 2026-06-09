@@ -11,6 +11,8 @@ import {
   isSameDay,
   addMonths,
   subMonths,
+  addWeeks,
+  subWeeks,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -55,4 +57,34 @@ export function getCalendarDays(month: Date): Date[] {
   return eachDayOfInterval({ start, end });
 }
 
-export { isToday, isSameMonth, isSameDay, addMonths, subMonths, format, parseISO };
+export function getWeekDays(date: Date): Date[] {
+  const start = startOfWeek(date, { weekStartsOn: 0 });
+  const end = endOfWeek(date, { weekStartsOn: 0 });
+  return eachDayOfInterval({ start, end });
+}
+
+export function formatWeekRange(date: Date): string {
+  const days = getWeekDays(date);
+  const start = days[0];
+  const end = days[6];
+  if (start.getMonth() === end.getMonth()) {
+    return format(start, 'yyyy년 M월 d일', { locale: ko }) + ' – ' + format(end, 'd일', { locale: ko });
+  }
+  return (
+    format(start, 'M월 d일', { locale: ko }) + ' – ' + format(end, 'M월 d일', { locale: ko })
+  );
+}
+
+export {
+  isToday,
+  isSameMonth,
+  isSameDay,
+  addMonths,
+  subMonths,
+  addWeeks,
+  subWeeks,
+  format,
+  parseISO,
+  startOfWeek,
+  endOfWeek,
+};
